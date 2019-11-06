@@ -53,7 +53,27 @@ func webSSHHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defer ptmx.Close()
+	defer func() {
+		if cmd.Process != nil {
+			err = cmd.Process.Kill()
+			if err != nil {
+				log.Println("cmd.Process.Kill error:", err)
+			}
+		}
+
+		err = cmd.Wait()
+		if err != nil {
+			log.Println("cmd.Wait error:", err)
+		}
+
+		err = ptmx.Close()
+		if err != nil {
+			log.Println("ptmx.Close:", err)
+		} else {
+			log.Println("ptmx closed!")
+		}
+	}()
+
 	go pipe2WS(ptmx, wsh)
 
 	loop := true
@@ -99,6 +119,8 @@ func webSSHHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
+	log.Println("webSSHHandler completed")
 }
 
 func ws2Pipe(buf []byte, writer io.WriteCloser) error {
@@ -137,4 +159,6 @@ func pipe2WS(pipe io.ReadCloser, c *wsholder) {
 		copy(b[1:], buf[0:n])
 		c.write(b)
 	}
+
+	log.Println("pipe2WS completed")
 }
