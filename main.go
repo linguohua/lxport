@@ -18,12 +18,14 @@ var (
 	webSSHPath = ""
 	webDir     = ""
 	daemon     = ""
+	pairPath   = ""
 )
 
 func init() {
 	flag.StringVar(&listenAddr, "l", "127.0.0.1:8010", "specify the listen address")
 	flag.StringVar(&xportPath, "p", "/xport", "specify websocket path")
 	flag.StringVar(&webSSHPath, "wp", "/webssh/", "specify web ssh path")
+	flag.StringVar(&pairPath, "pp", "/pair/", "specify web ssh path")
 	flag.StringVar(&webDir, "wd", "", "specify web dir")
 	flag.StringVar(&daemon, "d", "yes", "specify daemon mode")
 }
@@ -52,8 +54,16 @@ func main() {
 		log.Println("webDir not provided, will not support webssh")
 	}
 
+	params := &server.Params{
+		ListenAddr: listenAddr,
+		XPortPath:  xportPath,
+		WebPath:    webSSHPath,
+		WebDir:     webDir,
+		PairPath:   pairPath,
+	}
+
 	// start http server
-	go server.CreateHTTPServer(listenAddr, xportPath, webSSHPath, webDir)
+	go server.CreateHTTPServer(params)
 	log.Println("start lxport server ok!")
 
 	if daemon == "yes" {

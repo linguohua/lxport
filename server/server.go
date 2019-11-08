@@ -1,6 +1,7 @@
 package server
 
 import (
+	"lxport/server/tunpair"
 	"net"
 	"strings"
 	"sync"
@@ -182,28 +183,42 @@ func keepalive() {
 		for _, v := range wsmap {
 			v.keepalive()
 		}
+
+		tunpair.Keepalive()
 	}
 }
 
-// CreateHTTPServer start http server
-func CreateHTTPServer(listenAddr string, xportPath string, webPath string, webdir string) {
-	go keepalive()
-	http.HandleFunc(xportPath, xportWSHandler)
+// Params parameters
+type Params struct {
+	ListenAddr string
+	XPortPath  string
+	WebPath    string
+	WebDir     string
+	PairPath   string
+}
 
-	if webdir != "" && webPath != "" {
-		directory := webdir // "/home/abc/webpack-starter/build"
-		http.Handle("/", http.StripPrefix(strings.TrimRight(webPath, "/"),
+// CreateHTTPServer start http server
+func CreateHTTPServer(params *Params) {
+	go keepalive()
+	http.HandleFunc(params.XPortPath, xportWSHandler)
+
+	// pair
+	http.HandleFunc(params.PairPath, tunpair.PairWSHandler)
+
+	if params.WebDir != "" && params.WebPath != "" {
+		directory := params.WebDir // "/home/abc/webpack-starter/build"
+		http.Handle("/", http.StripPrefix(strings.TrimRight(params.WebPath, "/"),
 			http.FileServer(http.Dir(directory))))
 
-		websocketPath := strings.TrimRight(webPath, "/") + "/ws"
+		websocketPath := strings.TrimRight(params.WebPath, "/") + "/ws"
 		http.HandleFunc(websocketPath, webSSHHandler)
 
 		log.Printf("start with webssh support, websoket:%s, web path:%s, web dir:%s",
-			websocketPath, webPath, webdir)
+			websocketPath, params.WebPath, params.WebDir)
 	} else {
 		log.Warn("start without webssh support")
 	}
 
-	log.Printf("server listen at:%s, xportPath:%s", listenAddr, xportPath)
-	log.Fatal(http.ListenAndServe(listenAddr, nil))
+	log.Printf("server listen at:%s, xportPath:%s", params.ListenAddr, params.XPortPath)
+	log.Fatal(http.ListenAndServe(params.ListenAddr, nil))
 }
