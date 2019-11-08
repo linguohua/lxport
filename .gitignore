@@ -1,4 +1,4 @@
 *.exe
-lxport
-lxport.exe
-
+*/cmd/lxport
+*/ec/ec
+*/es/es

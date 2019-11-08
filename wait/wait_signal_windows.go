@@ -1,4 +1,4 @@
-package main
+package wait
 
 import (
 	"fmt"
@@ -6,7 +6,8 @@ import (
 	"os/signal"
 )
 
-func waitForSignal() {
+// GetSignal get signal
+func GetSignal() {
 	for {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, os.Kill)

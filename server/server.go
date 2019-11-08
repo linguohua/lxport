@@ -219,6 +219,7 @@ func CreateHTTPServer(params *Params) {
 		log.Warn("start without webssh support")
 	}
 
-	log.Printf("server listen at:%s, xportPath:%s", params.ListenAddr, params.XPortPath)
+	log.Printf("server listen at:%s, xportPath:%s, pair path:%s", params.ListenAddr,
+		params.XPortPath, params.PairPath)
 	log.Fatal(http.ListenAndServe(params.ListenAddr, nil))
 }
