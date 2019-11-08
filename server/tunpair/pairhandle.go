@@ -100,7 +100,7 @@ func handlePairResponse(c *websocket.Conn, uuid string) {
 	}
 
 	pair.onSlaveConneted(c)
-	pair.pch <- true
+	pair.pch <- struct{}{}
 
 	pair.loopSlave()
 }

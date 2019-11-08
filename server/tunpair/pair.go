@@ -24,7 +24,7 @@ type Pair struct {
 
 	dev *Device
 
-	pch chan bool
+	pch chan struct{}
 }
 
 func newPair(uuid string, dev *Device, c *websocket.Conn) *Pair {
@@ -32,7 +32,7 @@ func newPair(uuid string, dev *Device, c *websocket.Conn) *Pair {
 		uuid:       uuid,
 		masterConn: c,
 		dev:        dev,
-		pch:        make(chan bool, 1),
+		pch:        make(chan struct{}, 1),
 	}
 
 	// ping/pong handlers
