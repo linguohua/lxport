@@ -8,19 +8,28 @@ import (
 )
 
 var (
+	// the device id
 	deviceID string
-	wsURL    string
-	wsURLRaw string
+	// websocket url, that is
+	// base websocket url concatenated with device id
+	wsURLRegister string
+	// base websocket url
+	wsURLBase string
 
+	// map keep all current websocket
+	// use for keep-alive
 	wsholderMap = make(map[string]*wsholder)
 )
 
 // Params parameters
 type Params struct {
-	UUID  string
+	// device id
+	UUID string
+	// base websocket url
 	WsURL string
 }
 
+// keepalive send ping to all websocket holder
 func keepalive() {
 	for {
 		time.Sleep(time.Second * 30)
@@ -28,16 +37,17 @@ func keepalive() {
 		for _, v := range wsholderMap {
 			v.keepalive()
 		}
-
 	}
 }
 
-// Run run endpoint
+// Run run endpoint server and
+// wait for server's command
 func Run(params *Params) {
 	deviceID = params.UUID
-	wsURL = fmt.Sprintf("%s?pt=dev&uuid=%s", params.WsURL, deviceID)
-	wsURLRaw = params.WsURL
+	wsURLRegister = fmt.Sprintf("%s?pt=dev&uuid=%s", params.WsURL, deviceID)
+	wsURLBase = params.WsURL
 
+	// keep-alive goroutine
 	go keepalive()
 
 	log.Printf("endpoint run, device uuid:%s", deviceID)

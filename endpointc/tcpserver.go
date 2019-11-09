@@ -9,8 +9,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// wsholder websocket holder
 type wsholder struct {
-	conn      *websocket.Conn
+	conn *websocket.Conn
+	// protect websocket conn cocurrently writing
 	writeLock sync.Mutex
 }
 
@@ -33,17 +35,21 @@ func newHolder(c *websocket.Conn) *wsholder {
 	return wh
 }
 
+// write write bytes array to websocket with message type
 func (wh *wsholder) write(mt int, data []byte) error {
 	if wh.conn == nil {
 		return fmt.Errorf("wsholder write failed, no ws")
 	}
 
+	// lock, ensure only one goroutine can write to
+	// websocket in the same time
 	wh.writeLock.Lock()
 	err := wh.conn.WriteMessage(mt, data)
 	wh.writeLock.Unlock()
 	return err
 }
 
+// close close underlying websocket connection
 func (wh *wsholder) close() {
 	if wh.conn != nil {
 		wh.conn.Close()
@@ -51,6 +57,7 @@ func (wh *wsholder) close() {
 	}
 }
 
+// startTCPListener start tcp server, listen on localhost
 func startTCPListener(port uint16) {
 	address := fmt.Sprintf("127.0.0.1:%d", port)
 	listener, err := net.Listen("tcp", address)
@@ -71,17 +78,21 @@ func startTCPListener(port uint16) {
 	}
 }
 
+// handleRequest read tcp connection, and send to server via websocket connection
 func handleRequest(conn *net.TCPConn) {
 	defer conn.Close()
 
+	// build websocket connection
 	ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		log.Println("handleRequest failed connect to websocket server:", err)
 		return
 	}
 	wh := newHolder(ws)
+	// ensure websocket connection will be closed final
 	defer wh.close()
 
+	// read websocket message and forward to tcp
 	go func() {
 		for {
 			_, message, err := ws.ReadMessage()
@@ -99,6 +110,7 @@ func handleRequest(conn *net.TCPConn) {
 		}
 	}()
 
+	// read tcp message and forward to websocket
 	tcpbuf := make([]byte, 8192)
 	for {
 		n, err := conn.Read(tcpbuf)
@@ -116,6 +128,8 @@ func handleRequest(conn *net.TCPConn) {
 	}
 }
 
+// writeAll a function that ensure all bytes write out
+// maybe it is unnecessary, if the underlying tcp connection has ensure that
 func writeAll(conn *net.TCPConn, buf []byte) error {
 	wrote := 0
 	l := len(buf)
@@ -123,6 +137,11 @@ func writeAll(conn *net.TCPConn, buf []byte) error {
 		n, err := conn.Write(buf[wrote:])
 		if err != nil {
 			return err
+		}
+
+		if n == 0 {
+			// this should not happen
+			break
 		}
 
 		wrote = wrote + n

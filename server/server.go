@@ -35,6 +35,28 @@ type wsholder struct {
 	waitping  int
 }
 
+func newHolder(c *websocket.Conn) *wsholder {
+	wsIndex++
+	wsh := &wsholder{
+		conn: c,
+		id:   wsIndex,
+	}
+
+	// ping handle
+	c.SetPingHandler(func(data string) error {
+		wsh.writePong([]byte(data))
+		return nil
+	})
+
+	// pong handler
+	c.SetPongHandler(func(data string) error {
+		wsh.onPong([]byte(data))
+		return nil
+	})
+
+	return wsh
+}
+
 func (wsh *wsholder) write(msg []byte) error {
 	wsh.writeLock.Lock()
 	err := wsh.conn.WriteMessage(websocket.BinaryMessage, msg)
@@ -70,12 +92,14 @@ func (wsh *wsholder) onPong(msg []byte) {
 	wsh.waitping = 0
 }
 
+// xportWSHandler handle xport websocket
 func xportWSHandler(w http.ResponseWriter, r *http.Request) {
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
 		return
 	}
+	// ensoure websocket closed final
 	defer c.Close()
 
 	var portStr = r.URL.Query().Get("port")
@@ -84,32 +108,25 @@ func xportWSHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// only allow connect to localhost
 	tcp, err := net.Dial("tcp", "127.0.0.1:"+portStr)
 	if err != nil {
 		log.Printf("dial to 127.0.0.1:%s failed: %v", portStr, err)
 		return
 	}
 
-	wsIndex++
-	wsh := &wsholder{
-		conn: c,
-		id:   wsIndex,
-	}
+	wsh := newHolder(c)
+	// save to map for keep-alive
 	wsmap[wsh.id] = wsh
 
-	defer tcp.Close()
-	defer delete(wsmap, wsh.id)
+	defer func() {
+		// ensoure tcp closed final
+		tcp.Close()
+		// delete from map
+		delete(wsmap, wsh.id)
+	}()
 
-	c.SetPingHandler(func(data string) error {
-		wsh.writePong([]byte(data))
-		return nil
-	})
-
-	c.SetPongHandler(func(data string) error {
-		wsh.onPong([]byte(data))
-		return nil
-	})
-
+	// recv tcp message, and forward to websocket
 	recvBuf := make([]byte, 4096)
 	go func() {
 		for {
@@ -138,6 +155,7 @@ func xportWSHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	// recv websocket message and forward to tcp
 	for {
 		_, message, err := c.ReadMessage()
 		if err != nil {
@@ -158,6 +176,8 @@ func xportWSHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// writeAll a function that ensure all bytes write out
+// maybe it is unnecessary, if the underlying tcp connection has ensure that
 func writeAll(buf []byte, nc net.Conn) error {
 	wrote := 0
 	l := len(buf)
@@ -165,6 +185,11 @@ func writeAll(buf []byte, nc net.Conn) error {
 		n, err := nc.Write(buf[wrote:])
 		if err != nil {
 			return err
+		}
+
+		if n == 0 {
+			// should not happend
+			break
 		}
 
 		wrote = wrote + n
@@ -176,35 +201,46 @@ func writeAll(buf []byte, nc net.Conn) error {
 	return nil
 }
 
+// keepalive send ping to all websocket
 func keepalive() {
 	for {
 		time.Sleep(time.Second * 30)
 
+		// first keepalive all xport/web-ssh websocket
 		for _, v := range wsmap {
 			v.keepalive()
 		}
 
+		// then keepalive pair websocket
 		tunpair.Keepalive()
 	}
 }
 
 // Params parameters
 type Params struct {
+	// server listen address
 	ListenAddr string
-	XPortPath  string
-	WebPath    string
-	WebDir     string
-	PairPath   string
+	// xport http path
+	XPortPath string
+	// web ssh http path
+	WebPath string
+	// web ssh html/css file path
+	WebDir string
+	// pair http path
+	PairPath string
 }
 
 // CreateHTTPServer start http server
 func CreateHTTPServer(params *Params) {
+	// start keepalive goroutine
 	go keepalive()
-	http.HandleFunc(params.XPortPath, xportWSHandler)
 
+	// xport
+	http.HandleFunc(params.XPortPath, xportWSHandler)
 	// pair
 	http.HandleFunc(params.PairPath, tunpair.PairWSHandler)
 
+	// web ssh
 	if params.WebDir != "" && params.WebPath != "" {
 		directory := params.WebDir // "/home/abc/webpack-starter/build"
 		http.Handle("/", http.StripPrefix(strings.TrimRight(params.WebPath, "/"),

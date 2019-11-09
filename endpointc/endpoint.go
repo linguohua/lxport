@@ -7,21 +7,32 @@ import (
 )
 
 var (
-	localPort  uint16 //  = 8009
+	// local listen tcp port
+	localPort uint16 //  = 8009
+	// remote port, that endpoint server
+	// should connect to
 	remotePort uint16 // = 3389
-	deviceID   string
-	wsURL      string
+	// device uuid
+	deviceID string
+	// base websocket url
+	wsURL string
 )
 
 // Params parameters
 type Params struct {
-	LocalPort  uint16
+	// local listen tcp port
+	LocalPort uint16
+	// remote port, that endpoint server
+	// should connect to
 	RemotePort uint16
-	UUID       string
-	WsURL      string
+	// device uuid
+	UUID string
+	// base websocket url
+	WsURL string
 }
 
-// Run run endpoint
+// Run run endpoint client and
+// wait client to connect
 func Run(params *Params) {
 	localPort = params.LocalPort
 	remotePort = params.RemotePort
