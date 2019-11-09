@@ -86,7 +86,7 @@ func (p *Pair) loopSlave() {
 func (p *Pair) onSlaveConneted(c *websocket.Conn) {
 	// ping/pong handlers
 	c.SetPingHandler(func(data string) error {
-		p.writeMaster(websocket.PongMessage, []byte(data))
+		p.writeSlave(websocket.PongMessage, []byte(data))
 		return nil
 	})
 

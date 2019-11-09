@@ -52,7 +52,7 @@ func (d *Device) loopMsg() {
 	for {
 		_, message, err := c.ReadMessage()
 		if err != nil {
-			log.Println("read:", err)
+			log.Println("device read ws error:", err)
 			break
 		}
 
@@ -93,6 +93,7 @@ func (d *Device) keepalive() {
 
 	if d.waitingPingCount > 3 {
 		if d.conn != nil {
+			log.Println("Device keepalive failed, close:", d.uuid)
 			d.conn.Close()
 		}
 		return

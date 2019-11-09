@@ -13,13 +13,17 @@ import (
 )
 
 type wsholder struct {
+	uuid      string
 	conn      *websocket.Conn
 	writeLock sync.Mutex
+
+	waitingPingCount int
 }
 
-func newHolder(c *websocket.Conn) *wsholder {
+func newHolder(uuid string, c *websocket.Conn) *wsholder {
 	wh := &wsholder{
 		conn: c,
+		uuid: uuid,
 	}
 
 	// ping/pong handlers
@@ -29,7 +33,7 @@ func newHolder(c *websocket.Conn) *wsholder {
 	})
 
 	c.SetPongHandler(func(data string) error {
-		// d.onPong([]byte(data))
+		wh.onPong([]byte(data))
 		return nil
 	})
 
@@ -42,7 +46,7 @@ func buildCmdWS() (*wsholder, error) {
 		return nil, err
 	}
 
-	cs := newHolder(c)
+	cs := newHolder(deviceID, c)
 	return cs, nil
 }
 
@@ -78,8 +82,35 @@ func (cs *wsholder) close() {
 	}
 }
 
+func (cs *wsholder) onPong(data []byte) {
+	cs.waitingPingCount = 0
+}
+
+func (cs *wsholder) keepalive() {
+	if cs.conn == nil {
+		return
+	}
+
+	if cs.waitingPingCount > 3 {
+		if cs.conn != nil {
+			log.Println("Device keepalive failed, close:", cs.uuid)
+			cs.conn.Close()
+		}
+		return
+	}
+
+	now := time.Now().Unix()
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, uint64(now))
+	cs.write(websocket.PingMessage, b)
+
+	cs.waitingPingCount++
+}
+
 func (cs *wsholder) loop() {
 	ws := cs.conn
+	wsholderMap[cs.uuid] = cs
+
 	for {
 		_, message, err := ws.ReadMessage()
 		if err != nil {
@@ -96,6 +127,7 @@ func (cs *wsholder) loop() {
 			log.Errorf("unsupport operation:%d", ops)
 		}
 	}
+	delete(wsholderMap, cs.uuid)
 }
 
 func onPairRequest(cs *wsholder, message []byte) {
@@ -121,8 +153,13 @@ func onPairRequest(cs *wsholder, message []byte) {
 		return
 	}
 
-	wh := newHolder(ws)
-	defer wh.close()
+	wh := newHolder(string(uuid), ws)
+	wsholderMap[cs.uuid] = cs
+
+	defer func() {
+		wh.close()
+		delete(wsholderMap, cs.uuid)
+	}()
 
 	go func() {
 		for {
