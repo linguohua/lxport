@@ -92,7 +92,7 @@ func handleRequest(conn *net.TCPConn) {
 			}
 
 			// log.Println("handleRequest, ws message len:", len(message))
-			_, err = conn.Write(message)
+			err = writeAll(conn, message)
 			if err != nil {
 				break
 			}
@@ -114,4 +114,22 @@ func handleRequest(conn *net.TCPConn) {
 			break
 		}
 	}
+}
+
+func writeAll(conn *net.TCPConn, buf []byte) error {
+	wrote := 0
+	l := len(buf)
+	for {
+		n, err := conn.Write(buf[wrote:])
+		if err != nil {
+			return err
+		}
+
+		wrote = wrote + n
+		if wrote == l {
+			break
+		}
+	}
+
+	return nil
 }

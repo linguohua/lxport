@@ -133,7 +133,7 @@ func onPairRequest(cs *wsholder, message []byte) {
 				break
 			}
 
-			_, err = conn.Write(message)
+			writeAll(conn, message)
 			if err != nil {
 				break
 			}
@@ -155,4 +155,22 @@ func onPairRequest(cs *wsholder, message []byte) {
 			break
 		}
 	}
+}
+
+func writeAll(conn net.Conn, buf []byte) error {
+	wrote := 0
+	l := len(buf)
+	for {
+		n, err := conn.Write(buf[wrote:])
+		if err != nil {
+			return err
+		}
+
+		wrote = wrote + n
+		if wrote == l {
+			break
+		}
+	}
+
+	return nil
 }
