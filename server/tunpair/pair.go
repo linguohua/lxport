@@ -91,7 +91,7 @@ func (p *Pair) onSlaveConneted(c *websocket.Conn) {
 	})
 
 	c.SetPongHandler(func(data string) error {
-		p.masterWaitingPing = 0
+		p.slaveWaitingPing = 0
 		return nil
 	})
 
