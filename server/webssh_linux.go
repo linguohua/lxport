@@ -16,32 +16,21 @@ type SizeInfo struct {
 	Cols uint16 `json:"cols"`
 }
 
+// webSSHHandler handle web-ssh websocket(from web-browser) connection
 func webSSHHandler(w http.ResponseWriter, r *http.Request) {
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
 		return
 	}
+	// ensure websocket will be closed final
 	defer c.Close()
 
-	wsIndex++
-	wsh := &wsholder{
-		conn: c,
-		id:   wsIndex,
-	}
+	wsh := newHolder(c)
+	// save to map for keepalive
 	wsmap[wsh.id] = wsh
 
 	defer delete(wsmap, wsh.id)
-
-	c.SetPingHandler(func(data string) error {
-		wsh.writePong([]byte(data))
-		return nil
-	})
-
-	c.SetPongHandler(func(data string) error {
-		wsh.onPong([]byte(data))
-		return nil
-	})
 
 	// Create arbitrary command.
 	cmd := exec.Command("bash")
@@ -54,6 +43,7 @@ func webSSHHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer func() {
+		// ensure cmd will exit final
 		if cmd.Process != nil {
 			err = cmd.Process.Kill()
 			if err != nil {
@@ -61,11 +51,13 @@ func webSSHHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		// wait cmd exit
 		err = cmd.Wait()
 		if err != nil {
 			log.Println("cmd.Wait error:", err)
 		}
 
+		// close ptmx
 		err = ptmx.Close()
 		if err != nil {
 			log.Println("ptmx.Close:", err)
@@ -74,8 +66,10 @@ func webSSHHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	// bridge ptmx message to websocket
 	go pipe2WS(ptmx, wsh)
 
+	// read websocket message and forward to ptmx
 	loop := true
 	for loop {
 		_, message, err := c.ReadMessage()
@@ -123,6 +117,7 @@ func webSSHHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("webSSHHandler completed")
 }
 
+// ws2Pipe forward websocket's messsage to ptmx
 func ws2Pipe(buf []byte, writer io.WriteCloser) error {
 	wrote := 0
 	l := len(buf)
@@ -141,6 +136,7 @@ func ws2Pipe(buf []byte, writer io.WriteCloser) error {
 	return nil
 }
 
+// pipe2WS bridge ptmx message to websocket
 func pipe2WS(pipe io.ReadCloser, c *wsholder) {
 	buf := make([]byte, 4096)
 	for {
@@ -154,8 +150,9 @@ func pipe2WS(pipe io.ReadCloser, c *wsholder) {
 			break
 		}
 
+		// one byte message cmd type
 		b := make([]byte, n+1)
-		b[0] = 0
+		b[0] = 0 // always is 0, means ptmx data
 		copy(b[1:], buf[0:n])
 		c.write(b)
 	}

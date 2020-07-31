@@ -5,38 +5,42 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func handlePairAdvice(c *websocket.Conn, uuid string) {
+// handlePairDevice handle pair-able device register
+func handlePairDevice(c *websocket.Conn, uuid string) {
 	if uuid == "" {
-		log.Println("need uuid provided")
+		log.Println("handlePairDevice need uuid provided")
 		return
 	}
 
 	peerAddr := c.RemoteAddr()
-	log.Println("accept device websocket from:", peerAddr)
+	log.Println("handlePairDevice accept device websocket from:", peerAddr)
 	defer c.Close()
 
-	// wait old xdevice to exit
+	// if we have old websocket connection of this device, wait it to exit
 	old, ok := devices[uuid]
 	if ok {
 		old.close()
+		// wait
 		old.wg.Wait()
-		log.Println("wait old device exit ok:", uuid)
+		log.Println("handlePairDevice wait old device exit ok:", uuid)
 	}
 
+	// create new device and add to devices map
 	new := newDevice(uuid, c)
 	_, ok = devices[uuid]
 	if ok {
-		log.Println("try to add device conflict")
+		log.Println("handlePairDevice try to add device conflict")
 		return
 	}
 
 	devices[uuid] = new
 	new.wg.Add(1)
 	defer func() {
+		// remove from devices map
 		delete(devices, uuid)
 		new.wg.Done()
 	}()
 
+	// read device's websocket message
 	new.loopMsg()
-
 }
