@@ -7,6 +7,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/golang/snappy"
 )
 
 type wsholder struct {
@@ -82,6 +84,7 @@ func handleRequest(conn *net.TCPConn) {
 	wh := newHolder(ws)
 	defer wh.close()
 
+	decoded := make([]byte, 8192)
 	go func() {
 		for {
 			_, message, err := ws.ReadMessage()
@@ -91,8 +94,10 @@ func handleRequest(conn *net.TCPConn) {
 				break
 			}
 
+			// decode snappy
+			sout, _ := snappy.Decode(decoded, message)
 			// log.Println("handleRequest, ws message len:", len(message))
-			err = writeAll(conn, message)
+			err = writeAll(conn, sout)
 			if err != nil {
 				break
 			}

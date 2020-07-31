@@ -10,6 +10,8 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/gorilla/websocket"
+
+	"github.com/golang/snappy"
 )
 
 type wsholder struct {
@@ -178,6 +180,7 @@ func onPairRequest(cs *wsholder, message []byte) {
 	}()
 
 	tcpbuf := make([]byte, 8192)
+	encoded := make([]byte, 8192)
 	for {
 		n, err := conn.Read(tcpbuf)
 		if err != nil {
@@ -186,7 +189,9 @@ func onPairRequest(cs *wsholder, message []byte) {
 			break
 		}
 
-		err = wh.write(websocket.BinaryMessage, tcpbuf[:n])
+		// encode snappy
+		sout := snappy.Encode(encoded, tcpbuf[:n])
+		err = wh.write(websocket.BinaryMessage, sout)
 		if err != nil {
 			log.Println("onPairRequest ws write error:", err)
 			break
