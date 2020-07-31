@@ -94,7 +94,7 @@ func handleRequest(conn *net.TCPConn) {
 	// ensure websocket connection will be closed final
 	defer wh.close()
 
-	decoded := make([]byte, 8192)
+	decoded := make([]byte, 256*1024)
 	// read websocket message and forward to tcp
 	go func() {
 		for {

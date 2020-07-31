@@ -213,8 +213,8 @@ func onPairRequest(_ *wsholder, message []byte) {
 	}()
 
 	// receive tcp message and forward to websocket
-	tcpbuf := make([]byte, 8192)
-	encoded := make([]byte, 8192)
+	tcpbuf := make([]byte, 256*1024)
+	encoded := make([]byte, 256*1024)
 	for {
 		n, err := conn.Read(tcpbuf)
 		if err != nil {
