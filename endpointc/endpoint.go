@@ -16,6 +16,9 @@ var (
 	deviceID string
 	// base websocket url
 	wsURL string
+
+	// compressed   int64
+	// decompressed int64
 )
 
 // Params parameters

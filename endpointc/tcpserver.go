@@ -7,8 +7,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
-
-	"github.com/golang/snappy"
 )
 
 // wsholder websocket holder
@@ -26,6 +24,8 @@ func newHolder(c *websocket.Conn) *wsholder {
 	// ping/pong handlers
 	c.SetPingHandler(func(data string) error {
 		wh.write(websocket.PongMessage, []byte(data))
+
+		//log.Printf("compressed/decompressed:%f/100", (float64(compressed)/float64(decompressed))*100)
 		return nil
 	})
 
@@ -94,7 +94,7 @@ func handleRequest(conn *net.TCPConn) {
 	// ensure websocket connection will be closed final
 	defer wh.close()
 
-	decoded := make([]byte, 256*1024)
+	// decoded := make([]byte, 256*1024)
 	// read websocket message and forward to tcp
 	go func() {
 		for {
@@ -106,9 +106,12 @@ func handleRequest(conn *net.TCPConn) {
 			}
 
 			// decode snappy
-			sout, _ := snappy.Decode(decoded, message)
+			// sout, _ := snappy.Decode(decoded, message)
+			// compressed += int64(len(message))
+			// decompressed += int64(len(sout))
+
 			// log.Println("handleRequest, ws message len:", len(message))
-			err = writeAll(conn, sout)
+			err = writeAll(conn, message)
 			if err != nil {
 				break
 			}
