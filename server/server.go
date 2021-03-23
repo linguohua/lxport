@@ -102,16 +102,21 @@ func xportWSHandler(w http.ResponseWriter, r *http.Request) {
 	// ensoure websocket closed final
 	defer c.Close()
 
-	var portStr = r.URL.Query().Get("port")
+	var query = r.URL.Query()
+	var portStr = query.Get("port")
 	if portStr == "" {
 		log.Println("need port!")
 		return
 	}
 
+	var target = query.Get("target")
+	if target == "" {
+		target = "127.0.0.1"
+	}
 	// only allow connect to localhost
-	tcp, err := net.Dial("tcp", "127.0.0.1:"+portStr)
+	tcp, err := net.Dial("tcp", target+":"+portStr)
 	if err != nil {
-		log.Printf("dial to 127.0.0.1:%s failed: %v", portStr, err)
+		log.Printf("dial to %s:%s failed: %v", target, portStr, err)
 		return
 	}
 
